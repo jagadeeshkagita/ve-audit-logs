@@ -1,5 +1,6 @@
 {
     "name": "ve-audit-logs",
     "provider_region": "aws-ap-south-1",
-    "deployment_model": "LOCAL"
+    "deployment_model": "LOCAL",
+    "environment": "production"
 }
