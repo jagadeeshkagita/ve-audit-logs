@@ -21,7 +21,7 @@
             "UPDATE"
         ],
         "project": {},
-        "service_name": "ve-prod",
+        "service_name": "mongodb-atlas",
         "skip_catchup_events": false,
         "tolerate_resume_errors": false ,
         "unordered": false 
