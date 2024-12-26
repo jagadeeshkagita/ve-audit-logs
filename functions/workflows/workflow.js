@@ -1,8 +1,7 @@
 exports = async function(changeEvent) {
-    try{
+    try {
         const serviceName = context.environment.values.service;
         const databaseName = context.environment.tag;
-
 
         const changeLogCollectionName = "auditlogs";
         const workflowsCollectionName = "workflows";
@@ -16,28 +15,47 @@ exports = async function(changeEvent) {
         const tenantUserCollection = mongodb.collection(tenantUserCollectionName);
         const changeLogCollection = mongodb.collection(changeLogCollectionName);
         const deletedRecordsCollection = mongodb.collection(deletedRecordsCollectionName);
-        
 
         const docId = changeEvent.documentKey._id;
         const fullDocument = changeEvent.fullDocument || {};
         const userId = fullDocument.updatedBy || null;
         const tenantId = fullDocument.tenantId || null;
         const entityType = fullDocument.entityType || changeEvent.ns.coll;
-        const tenant = await tenantCollection.findOne({ _id: fullDocument.tenantId }, { workspaceIds: 1, tenantUsers: 1 })
-        const user = await tenantUserCollection.findOne({ _id: userId }, { _id: 1, firstName: 1, lastName: 1 });
-        
+
+        // Check if tenantId exists before querying the tenant collection
+        let tenant = null;
+        if (tenantId) {
+            tenant = await tenantCollection.findOne({ _id: tenantId }, { workspaceIds: 1, tenantUsers: 1 });
+        }
+
+        // Check if userId exists before querying the tenantUser collection
+        let user = null;
+        if (userId) {
+            user = await tenantUserCollection.findOne({ _id: userId }, { _id: 1, firstName: 1, lastName: 1 });
+        }
+
+        let userName = null;
+        if (user) {
+            userName = user ? (user.lastName ? user.firstName + user.lastName : user.firstName) : null;
+        }
+
+        let workspaceId = null;
+        if (tenant && tenant.workspaceIds && tenant.workspaceIds.length > 0) {
+            workspaceId = tenant.workspaceIds[tenant.workspaceIds.length - 1];
+        }
+
         let logEntry = {
             documentId: docId,
             userId: userId,
-            userName:  user ? (user.lastName ? user.firstName + user.lastName : user.firstName) : null,
+            userName: userName || null,  // Handle case where userName might be null
             tenantId: tenantId,
-            workspaceId: tenant?.workspaceIds[tenant.workspaceIds.length - 1] || null,
+            workspaceId: workspaceId || null,  // Handle case where workspaceId might be null
             entity: 'workflow',
             entityType: entityType,
             entitySlug: fullDocument.slug,
             action: changeEvent.operationType,
-            timestamp: Math.floor(new Date().getTime() / 1000), 
-          };
+            timestamp: Math.floor(new Date().getTime() / 1000),
+        };
 
         if (changeEvent.operationType === "insert") {
             const insertEntry = {
@@ -46,23 +64,21 @@ exports = async function(changeEvent) {
             };
             await changeLogCollection.insertOne(insertEntry);
         }
-        else if(changeEvent.operationType==="update"){
+        else if (changeEvent.operationType === "update") {
             const updateEntry = {
-                ...logEntry,            
+                ...logEntry,
                 changes: changeEvent.updateDescription.updatedFields || {},
                 removedFields: changeEvent.updateDescription.removedFields || []
             };
-            await changeLogCollection.insertOne(updateEntry)
+            await changeLogCollection.insertOne(updateEntry);
         }
-        else if(changeEvent.operationType==="delete"){
+        else if (changeEvent.operationType === "delete") {
             const deleteEntry = {
                 ...logEntry
-              };
-              await deletedRecordsCollection.insertOne(deleteEntry);
+            };
+            await deletedRecordsCollection.insertOne(deleteEntry);
         }
-    } 
-    
-    catch(error){
-        console.log("Error performing mongodb operation: ",error.message);
+    } catch (error) {
+        console.log("Error performing mongodb operation: ", error.message);
     }
 }
