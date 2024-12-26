@@ -30,7 +30,7 @@ exports = async function(changeEvent) {
         let logEntry = {
             documentId: docId,
             userId: user ? user._id : null,
-            userName: user ? `${user.firstName} ${user.lastName}` : null,
+            userName:  user ? (user.lastName ? user.firstName + user.lastName : user.firstName) : null,
             tenantId: tenantId,
             workspaceId: tenant?.workspaceIds[tenant.workspaceIds.length-1] || null,
             entity: 'proposal',
@@ -43,7 +43,8 @@ exports = async function(changeEvent) {
           if (changeEvent.updateDescription.updatedFields && changeEvent.updateDescription.updatedFields.status && changeEvent.updateDescription.updatedFields.status === 'accepted') {
             logEntry.userId = fullDocument?.acceptedBy?._id
             logEntry.userName = fullDocument?.acceptedBy?.name
-        }
+            logEntry.userType = fullDocument?.acceptedBy?.userType
+          }
 
           if(changeEvent.operationType==="update"){
             const updateEntry = {

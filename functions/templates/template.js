@@ -27,7 +27,7 @@ exports = async function(changeEvent) {
         let logEntry = {
             documentId: docId,
             userId: userId,
-            userName: user ? `${user.firstName} ${user.lastName}` : null,
+            userName:  user ? (user.lastName ? user.firstName + user.lastName : user.firstName) : null,
             tenantId: tenantId,
             workspaceId: tenant?.workspaceIds[tenant.workspaceIds.length-1] || null,
             entity: 'workflowtemplate',
