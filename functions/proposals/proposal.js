@@ -42,7 +42,7 @@ exports = async function(changeEvent) {
             entityType: entityType,
             entitySlug: fullDocument.slug,
             action: changeEvent.operationType,
-            timeStamp: Math.floor(new Date().getTime() / 1000)
+            timestamp: Math.floor(new Date().getTime() / 1000)
         };
 
         // Handling 'accepted' status change in the proposal
