@@ -23,13 +23,15 @@ exports = async function(changeEvent) {
         const entityType = fullDocument.entityType || changeEvent.ns.coll;
         const tenant = await tenantCollection.findOne({ _id: fullDocument.tenantId }, { workspaceIds: 1, tenantUsers: 1 })
         const user = await tenantUserCollection.findOne({ _id: userId }, { _id: 1, firstName: 1, lastName: 1 });
+        const workspaceId = tenant?.workspaceIds[tenant.workspaceIds.length - 1] || null; 
+
         
         let logEntry = {
             documentId: docId,
             userId: userId,
             userName:  user ? (user.lastName ? user.firstName + user.lastName : user.firstName) : null,
             tenantId: tenantId,
-            workspaceId: tenant?.workspaceIds[tenant.workspaceIds.length-1] || null,
+            workspaceId: workspaceId,
             entity: 'workflowtemplate',
             entityType: entityType,
             entitySlug: fullDocument.slug,
@@ -79,7 +81,7 @@ exports = async function(changeEvent) {
                 entityId: docId,
                 entity: 'workflowtemplate',
                 entitySlug: fullDocument.slug ? fullDocument.slug : null,
-                workspaceId: workspaceId ? workspaceId : null,
+                workspaceId: workspaceId,
                 action: changeEvent.operationType,
                 summary: createNotificationSummary(changeEvent),
                 receipts: [],
