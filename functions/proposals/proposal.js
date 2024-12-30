@@ -5,6 +5,7 @@ exports = async function(changeEvent) {
 
         const changeLogCollectionName = "auditlogs";
         const proposalsCollectionName = "proposals";
+     
         const tenantCollectionName = "tenants";
         const tenantUserCollectionName = "tenantusers";
 
@@ -31,6 +32,7 @@ exports = async function(changeEvent) {
         // }
 
         const tenant = await tenantCollection.findOne({ _id: fullDocument.tenantId }, { workspaceIds: 1, tenantUsers: 1 });
+        
 
         let logEntry = {
             documentId: docId,
@@ -49,7 +51,6 @@ exports = async function(changeEvent) {
         if (changeEvent.updateDescription.updatedFields && changeEvent.updateDescription.updatedFields.status === 'accepted') {
             logEntry.userId = fullDocument?.acceptedBy?._id || null;
             logEntry.userName = fullDocument?.acceptedBy?.name || null;
-            logEntry.userType = fullDocument?.acceptedBy?.userType || null;
         }
 
         if (changeEvent.operationType === "update") {
@@ -60,6 +61,44 @@ exports = async function(changeEvent) {
             };
             if (changeEvent.updateDescription.updatedFields && changeEvent.updateDescription.updatedFields.status === 'accepted') {
                 await changeLogCollection.insertOne(updateEntry);
+            }
+        }
+
+        function createNotificationSummary(changeEvent){
+            if(changeEvent.operationType === "update"){
+                const keysArray = Object.keys(changeEvent.updateDescription.updatedFields);
+                if(keysArray.includes("status")){
+                    const { status } = changeEvent.updateDescription.updatedFields;
+                    if (status === 'accepted' && fullDocument.acceptedBy && fullDocument.acceptedBy.name) {
+                        return `${logEntry.userName} accepeted ${fullDocument.title} proposal on ${fullDocument.updatedAt}`
+                    }
+                }
+            }
+        }
+
+        if(changeEvent.operationType=="update" && fullDocument.status!=="draft"){
+            const notificationCollection = mongodb.collection('notifications');
+            const keysArray = Object.keys(changeEvent.updateDescription.updatedFields);
+            const notificationEntry = {
+                referenceId: changeEvent._id._data,  
+                tenantId: tenantId ? tenantId : null,
+                entityType: entityType,
+                entityId: docId,
+                entity: 'proposal',
+                entitySlug: fullDocument.slug ? fullDocument.slug : null,
+                workspaceId: workspaceId ? workspaceId : null,
+                action: changeEvent.operationType,
+                summary: createNotificationSummary(changeEvent),
+                receipts: [],
+                createdBy: logEntry.userId,
+                readBy: [],
+                timestamp: Math.floor(new Date().getTime() / 1000),
+                isAdmin: true,
+                hasFullAccess: true,
+                notifyChannels: ['app', 'dashboard']
+            };
+            if (keysArray.includes('status') && changeEvent.updateDescription.updatedFields.status === 'accepted') {
+                await notificationCollection.insertOne(notificationEntry);
             }
         }
     } catch (error) {

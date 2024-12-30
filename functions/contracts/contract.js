@@ -44,7 +44,6 @@ exports = async function(changeEvent) {
                 const signature = updatedSignatures[updatedSignatures.length-1]; 
                 logEntry.userId = signature._id || null; 
                 logEntry.userName = signature.userName || null;
-                logEntry.userType = signature.userType || null;
             }
           }
 
@@ -56,8 +55,62 @@ exports = async function(changeEvent) {
             if (changeEvent.updateDescription.updatedFields && changeEvent.updateDescription.updatedFields.signatures && changeEvent.updateDescription.updatedFields.signatures.length>0) {
                 await changeLogCollection.insertOne(updateEntry);
             }
-    
         }
+
+        function createNotificationSummary(changeEvent) {
+            if (changeEvent.operationType === "update") {
+                const keysArray = Object.keys(changeEvent.updateDescription.updatedFields);
+                if (keysArray.includes("signatures")) {
+                    const { signatures } = changeEvent.updateDescription.updatedFields;
+                    if (signatures && signatures.length > 0) {
+                        const hasTenantUser = signatures.some(signature => signature.userType === "TenantUser");
+                        if (!hasTenantUser) {
+                            const endUserSignature = signatures.find(signature => signature.userType === "endUser");
+                            if (endUserSignature) {
+                                return `${logEntry?.userName} signed ${fullDocument.title} contract on ${fullDocument.updatedAt}`;
+                            }
+                        }
+                    }
+                }
+            }
+           
+        }
+
+        if (changeEvent.operationType === "update") {
+            const notificationCollection = mongodb.collection('notifications');
+            const keysArray = Object.keys(changeEvent.updateDescription.updatedFields);
+        
+            if (keysArray.includes('signatures')) {
+                const { signatures } = changeEvent.updateDescription.updatedFields;
+                if (signatures && signatures.length > 0) {
+                    const hasTenantUser = signatures.some(signature => signature.userType === "TenantUser");
+                    const hasEndUser = signatures.some(signature => signature.userType === "endUser");
+                    if (!hasTenantUser && hasEndUser) {
+                        const notificationEntry = {
+                            referenceId: changeEvent._id._data,
+                            tenantId: tenantId ? tenantId : null,
+                            entityType: entityType,
+                            entityId: docId,
+                            entity: 'contract',
+                            entitySlug: fullDocument.slug ? fullDocument.slug : null,
+                            workspaceId: workspaceId ? workspaceId : null,
+                            action: changeEvent.operationType,
+                            summary: createNotificationSummary(changeEvent),
+                            receipts: [],
+                            createdBy: logEntry.userId,
+                            readBy: [],
+                            timestamp: Math.floor(new Date().getTime() / 1000),
+                            isAdmin: true,
+                            hasFullAccess: true,
+                            notifyChannels: ['app', 'dashboard']
+                        };
+                        await notificationCollection.insertOne(notificationEntry);
+                    }
+                }
+            }
+        }
+        
+        
     }catch(error){
         console.log("Error performing mongodb operation: ",error.message);
     }

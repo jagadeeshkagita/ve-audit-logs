@@ -53,7 +53,48 @@ exports = async function(changeEvent) {
             await changeLogCollection.insertOne(updateEntry);
         }
         
+        function createNotificationSummary(changeEvent){
+            if(changeEvent.operationType==="insert"){
+                return `${logEntry?.userName} created ${fullDocument.title} template on ${fullDocument.updatedAt}`
+            }
+            else if(changeEvent.operationType==="update"){
+                const keysArray = Object.keys(changeEvent.updateDescription.updatedFields);
+                if(keysArray.includes("status")){
+                    const { status } = changeEvent.updateDescription.updatedFields;
+                    if(status==="published"){
+                        return `${logEntry?.userName} published ${fullDocument.title} template on ${fullDocument.updatedAt}`
+                    }
+                }else{
+                    return `${logEntry?.userName} updated ${fullDocument.title} template on ${fullDocument.updatedAt}`
+                }
+            }
+        }
+
+        if(changeEvent.operationType!=="delete"){
+            const notificationCollection = mongodb.collection('notifications');
+            const notificationEntry = {
+                referenceId: changeEvent._id._data,  
+                tenantId: tenantId ? tenantId : null,
+                entityType: entityType,
+                entityId: docId,
+                entity: 'workflowtemplate',
+                entitySlug: fullDocument.slug ? fullDocument.slug : null,
+                workspaceId: workspaceId ? workspaceId : null,
+                action: changeEvent.operationType,
+                summary: createNotificationSummary(changeEvent),
+                receipts: [],
+                createdBy: logEntry.userId,
+                readBy: [],
+                timestamp: Math.floor(new Date().getTime() / 1000),
+                isAdmin: true,
+                hasFullAccess: true,
+                notifyChannels: ['app', 'dashboard']
+            };
+            await notificationCollection.insertOne(notificationEntry);
+        }
     } 
+
+   
     catch(error){
         console.log("Error performing mongodb operation: ",error.message);
     }
