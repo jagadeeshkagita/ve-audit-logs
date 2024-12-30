@@ -18,36 +18,39 @@ exports = async function(changeEvent) {
 
         const docId = changeEvent.documentKey._id;
         const fullDocument = changeEvent.fullDocument || {};
-        const userId = fullDocument.updatedBy || null;
+        const userId = fullDocument.updatedBy || fullDocument.createdBy; 
         const tenantId = fullDocument.tenantId || null;
         const entityType = fullDocument.entityType || changeEvent.ns.coll;
+        const tenant = await tenantCollection.findOne({ _id: fullDocument.tenantId }, { workspaceIds: 1, tenantUsers: 1 })
+        const user =userId? await tenantUserCollection.findOne({ _id: userId }) :null;
+        const workspaceId = tenant?.workspaceIds[tenant.workspaceIds.length - 1] || null; 
 
-        // Check if tenantId exists before querying the tenant collection
-        let tenant = null;
-        if (tenantId) {
-            tenant = await tenantCollection.findOne({ _id: tenantId }, { workspaceIds: 1, tenantUsers: 1 });
-        }
+        // // Check if tenantId exists before querying the tenant collection
+        // let tenant = null;
+        // if (tenantId) {
+        //     tenant = await tenantCollection.findOne({ _id: tenantId }, { workspaceIds: 1, tenantUsers: 1 });
+        // }
 
-        // Check if userId exists before querying the tenantUser collection
-        let user = null;
-        if (userId) {
-            user = await tenantUserCollection.findOne({ _id: userId }, { _id: 1, firstName: 1, lastName: 1 });
-        }
+        // // Check if userId exists before querying the tenantUser collection
+        // let user = null;
+        // if (userId) {
+        //     user = await tenantUserCollection.findOne({ _id: userId }, { _id: 1, firstName: 1, lastName: 1 });
+        // }
 
-        let userName = null;
-        if (user) {
-            userName = user ? (user.lastName ? user.firstName + user.lastName : user.firstName) : null;
-        }
+        // let userName = null;
+        // if (user) {
+        //     userName = user ? (user.lastName ? user.firstName + user.lastName : user.firstName) : null;
+        // }
 
-        let workspaceId = null;
-        if (tenant && tenant.workspaceIds && tenant.workspaceIds.length > 0) {
-            workspaceId = tenant.workspaceIds[tenant.workspaceIds.length - 1];
-        }
+        // let workspaceId = null;
+        // if (tenant && tenant.workspaceIds && tenant.workspaceIds.length > 0) {
+        //     workspaceId = tenant.workspaceIds[tenant.workspaceIds.length - 1];
+        // }
 
         let logEntry = {
             documentId: docId,
             userId: userId,
-            userName: userName || null,  // Handle case where userName might be null
+            userName: user ? (user.lastName ? user.firstName + user.lastName : user.firstName) : null,
             tenantId: tenantId,
             workspaceId: workspaceId || null,  // Handle case where workspaceId might be null
             entity: 'workflow',
@@ -88,10 +91,10 @@ exports = async function(changeEvent) {
                 if(keysArray.includes("status")){
                     const { status } = changeEvent.updateDescription.updatedFields;
                     if(status==="filesSent"){
-                        return `${logEntry?.userName} published ${fullDocument.title} workflow on ${fullDocument.updatedAt}`
+                        return `${logEntry?.userName} published ${fullDocument.title} template on ${fullDocument.updatedAt}`
                     }
                 }else{
-                    return `${logEntry?.userName || 'Anonymous user'} updated ${fullDocument.title} workflow on ${fullDocument.updatedAt}`
+                    return `${logEntry?.userName || 'Anonymous user'} updated ${fullDocument.title} template on ${fullDocument.updatedAt}`
                 }
             }
             else if(changeEvent.operationType==="delete"){
@@ -99,7 +102,7 @@ exports = async function(changeEvent) {
             }
         }
 
-        if(changeEvent.operationType){
+        if(changeEvent.operationType==="insert" || changeEvent.operationType==="update" || changeEvent.operationType==="delete"){
             const notificationCollection = mongodb.collection('notifications');
             const notificationEntry = {
                 referenceId: changeEvent._id._data,  
