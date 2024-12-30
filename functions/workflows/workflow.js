@@ -24,21 +24,17 @@ exports = async function(changeEvent) {
         const tenantId = fullDocument.tenantId || null;
         const entityType = fullDocument.entityType || changeEvent.ns.coll;
 
-        // Get tenant details
+        
         const tenant = await tenantCollection.findOne({ _id: fullDocument.tenantId }, { workspaceIds: 1, tenantUsers: 1 });
 
-        // Try to find user in tenantUserCollection
         let user = null;
-        let userName = 'Anonymous user'; // Default value for userName
+        let userName = 'Anonymous user';
         if (userId) {
-            // First check in tenantUserCollection
             user = await tenantUserCollection.findOne({ _id: userId });
             if (!user) {
-                // If not found in tenantUserCollection, check in clientsCollection
                 const client = await clientsCollection.findOne({ _id: userId });
-                if (client) {
-                    userName = client.firstName + (client.lastName ? ' ' + client.lastName : '');
-                  
+                if (client && client.name) {
+                    userName = client.name;
                 }
             } else {
                 userName = user.firstName + (user.lastName ? ' ' + user.lastName : '');
@@ -98,14 +94,13 @@ exports = async function(changeEvent) {
                     if (status === "filesSent") {
                         return `${logEntry.userName} published ${fullDocument.title} workflow on ${fullDocument.updatedAt}`;
                     }
-                } else {
-                    return `${logEntry.userName} updated ${fullDocument.title} workflow on ${fullDocument.updatedAt}`;
-                }
+                } 
             }
             else if (changeEvent.operationType === "delete") {
                 return `${logEntry.userName} deleted ${fullDocument.title} workflow`;
+            }else{
+                return `${logEntry.userName} updated ${fullDocument.title} workflow on ${fullDocument.updatedAt}`;
             }
-
         }
 
         // Insert notification entry
