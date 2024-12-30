@@ -83,7 +83,6 @@ exports = async function(changeEvent) {
 
         // Create notification summary
         function createNotificationSummary(changeEvent) {
-           
             if (changeEvent.operationType === "insert") {
                 return `${logEntry.userName} created ${fullDocument.title} workflow on ${fullDocument.updatedAt}`;
             }
@@ -95,11 +94,10 @@ exports = async function(changeEvent) {
                         return `${logEntry.userName} published ${fullDocument.title} workflow on ${fullDocument.updatedAt}`;
                     }
                 } 
+                return `${logEntry.userName} updated ${fullDocument.title} workflow on ${fullDocument.updatedAt}`;
             }
             else if (changeEvent.operationType === "delete") {
                 return `${logEntry.userName} deleted ${fullDocument.title} workflow`;
-            }else{
-                return `${logEntry.userName} updated ${fullDocument.title} workflow on ${fullDocument.updatedAt}`;
             }
         }
 

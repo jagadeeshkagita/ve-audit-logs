@@ -55,20 +55,19 @@ exports = async function(changeEvent) {
             await changeLogCollection.insertOne(updateEntry);
         }
         
-        function createNotificationSummary(changeEvent){
-            if(changeEvent.operationType==="insert"){
-                return `${logEntry?.userName} created ${fullDocument.title} template on ${fullDocument.updatedAt}`
+        function createNotificationSummary(changeEvent) {
+            if (changeEvent.operationType === "insert") {
+                return `${logEntry?.userName || 'Anonymous user'} created ${fullDocument.title} template on ${fullDocument.updatedAt}`;
             }
-            else if(changeEvent.operationType==="update"){
+            else if (changeEvent.operationType === "update") {
                 const keysArray = Object.keys(changeEvent.updateDescription.updatedFields);
-                if(keysArray.includes("status")){
+                if (keysArray.includes("status")) {
                     const { status } = changeEvent.updateDescription.updatedFields;
-                    if(status==="published"){
-                        return `${logEntry?.userName} published ${fullDocument.title} template on ${fullDocument.updatedAt}`
+                    if (status === "published") {
+                        return `${logEntry?.userName || 'Anonymous user'} published ${fullDocument.title} template on ${fullDocument.updatedAt}`;
                     }
-                }else{
-                    return `${logEntry?.userName || 'Anonymous user'} updated ${fullDocument.title} template on ${fullDocument.updatedAt}`
                 }
+                return `${logEntry?.userName || 'Anonymous user'} updated ${fullDocument.title} template on ${fullDocument.updatedAt}`;
             }
         }
 
