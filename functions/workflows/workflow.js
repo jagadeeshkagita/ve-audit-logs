@@ -7,52 +7,54 @@ exports = async function(changeEvent) {
         const workflowsCollectionName = "workflows";
         const tenantCollectionName = "tenants";
         const tenantUserCollectionName = "tenantusers";
+        const clientsCollectionName = "clients";  // New collection for clients
         const deletedRecordsCollectionName = "archiverecords";
 
         const mongodb = context.services.get(serviceName).db(databaseName);
         const workflowsCollection = mongodb.collection(workflowsCollectionName);
         const tenantCollection = mongodb.collection(tenantCollectionName);
         const tenantUserCollection = mongodb.collection(tenantUserCollectionName);
+        const clientsCollection = mongodb.collection(clientsCollectionName);  // Collection for clients
         const changeLogCollection = mongodb.collection(changeLogCollectionName);
         const deletedRecordsCollection = mongodb.collection(deletedRecordsCollectionName);
 
         const docId = changeEvent.documentKey._id;
         const fullDocument = changeEvent.fullDocument || {};
-        const userId = fullDocument.updatedBy || fullDocument.createdBy; 
+        const userId = fullDocument.updatedBy || null; 
         const tenantId = fullDocument.tenantId || null;
         const entityType = fullDocument.entityType || changeEvent.ns.coll;
-        const tenant = await tenantCollection.findOne({ _id: fullDocument.tenantId }, { workspaceIds: 1, tenantUsers: 1 })
-        const user =userId? await tenantUserCollection.findOne({ _id: userId }) :null;
-        const workspaceId = tenant?.workspaceIds[tenant.workspaceIds.length - 1] || null; 
 
-        // // Check if tenantId exists before querying the tenant collection
-        // let tenant = null;
-        // if (tenantId) {
-        //     tenant = await tenantCollection.findOne({ _id: tenantId }, { workspaceIds: 1, tenantUsers: 1 });
-        // }
+        // Get tenant details
+        const tenant = await tenantCollection.findOne({ _id: fullDocument.tenantId }, { workspaceIds: 1, tenantUsers: 1 });
 
-        // // Check if userId exists before querying the tenantUser collection
-        // let user = null;
-        // if (userId) {
-        //     user = await tenantUserCollection.findOne({ _id: userId }, { _id: 1, firstName: 1, lastName: 1 });
-        // }
+        // Try to find user in tenantUserCollection
+        let user = null;
+        let userName = 'Anonymous user'; // Default value for userName
+        if (userId) {
+            // First check in tenantUserCollection
+            user = await tenantUserCollection.findOne({ _id: userId });
+            if (!user) {
+                // If not found in tenantUserCollection, check in clientsCollection
+                const client = await clientsCollection.findOne({ _id: userId });
+                if (client) {
+                    userName = client.firstName + (client.lastName ? ' ' + client.lastName : '');
+                  
+                }
+            } else {
+                userName = user.firstName + (user.lastName ? ' ' + user.lastName : '');
+            }
+        }
 
-        // let userName = null;
-        // if (user) {
-        //     userName = user ? (user.lastName ? user.firstName + user.lastName : user.firstName) : null;
-        // }
+        // Get workspaceId from tenant
+        const workspaceId = tenant?.workspaceIds?.length > 0 ? tenant.workspaceIds[tenant.workspaceIds.length - 1] : null;
 
-        // let workspaceId = null;
-        // if (tenant && tenant.workspaceIds && tenant.workspaceIds.length > 0) {
-        //     workspaceId = tenant.workspaceIds[tenant.workspaceIds.length - 1];
-        // }
-
+        // Prepare log entry
         let logEntry = {
             documentId: docId,
             userId: userId,
-            userName: user ? (user.lastName ? user.firstName + user.lastName : user.firstName) : null,
+            userName: userName,  // Use the final userName
             tenantId: tenantId,
-            workspaceId: workspaceId || null,  // Handle case where workspaceId might be null
+            workspaceId: workspaceId || null,
             entity: 'workflow',
             entityType: entityType,
             entitySlug: fullDocument.slug,
@@ -60,6 +62,7 @@ exports = async function(changeEvent) {
             timestamp: Math.floor(new Date().getTime() / 1000),
         };
 
+        // Handle change events
         if (changeEvent.operationType === "insert") {
             const insertEntry = {
                 ...logEntry,
@@ -82,36 +85,40 @@ exports = async function(changeEvent) {
             await deletedRecordsCollection.insertOne(deleteEntry);
         }
 
-        function createNotificationSummary(changeEvent){
-            if(changeEvent.operationType==="insert"){
-                return `${logEntry?.userName} created ${fullDocument.title} workflow on ${fullDocument.updatedAt}`
+        // Create notification summary
+        function createNotificationSummary(changeEvent) {
+           
+            if (changeEvent.operationType === "insert") {
+                return `${logEntry.userName} created ${fullDocument.title} workflow on ${fullDocument.updatedAt}`;
             }
-            else if(changeEvent.operationType==="update"){
+            else if (changeEvent.operationType === "update") {
                 const keysArray = Object.keys(changeEvent.updateDescription.updatedFields);
-                if(keysArray.includes("status")){
+                if (keysArray.includes("status")) {
                     const { status } = changeEvent.updateDescription.updatedFields;
-                    if(status==="filesSent"){
-                        return `${logEntry?.userName} published ${fullDocument.title} template on ${fullDocument.updatedAt}`
+                    if (status === "filesSent") {
+                        return `${logEntry.userName} published ${fullDocument.title} workflow on ${fullDocument.updatedAt}`;
                     }
-                }else{
-                    return `${logEntry?.userName || 'Anonymous user'} updated ${fullDocument.title} template on ${fullDocument.updatedAt}`
+                } else {
+                    return `${logEntry.userName} updated ${fullDocument.title} workflow on ${fullDocument.updatedAt}`;
                 }
             }
-            else if(changeEvent.operationType==="delete"){
-                return `${logEntry?.userName} deleted ${fullDocument.title} workflow`
+            else if (changeEvent.operationType === "delete") {
+                return `${logEntry.userName} deleted ${fullDocument.title} workflow`;
             }
+
         }
 
-        if(changeEvent.operationType==="insert" || changeEvent.operationType==="update" || changeEvent.operationType==="delete"){
+        // Insert notification entry
+        if (changeEvent.operationType === "insert" || changeEvent.operationType === "update" || changeEvent.operationType === "delete") {
             const notificationCollection = mongodb.collection('notifications');
             const notificationEntry = {
                 referenceId: changeEvent._id._data,  
-                tenantId: tenantId ? tenantId : null,
+                tenantId: tenantId || null,
                 entityType: entityType,
                 entityId: docId,
                 entity: 'workflow',
                 entitySlug: fullDocument.slug ? fullDocument.slug : null,
-                workspaceId: workspaceId ? workspaceId : null,
+                workspaceId: workspaceId || null,
                 action: changeEvent.operationType,
                 summary: createNotificationSummary(changeEvent),
                 receipts: [],
@@ -124,8 +131,8 @@ exports = async function(changeEvent) {
             };
             await notificationCollection.insertOne(notificationEntry);
         }
+
     } catch (error) {
         console.log("Error performing mongodb operation: ", error.message);
     }
 }
-
