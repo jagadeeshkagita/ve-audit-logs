@@ -67,7 +67,7 @@ exports = async function(changeEvent) {
                         return `${logEntry?.userName} published ${fullDocument.title} template on ${fullDocument.updatedAt}`
                     }
                 }else{
-                    return `${logEntry?.userName} updated ${fullDocument.title} template on ${fullDocument.updatedAt}`
+                    return `${logEntry?.userName || 'Anonymous user'} updated ${fullDocument.title} template on ${fullDocument.updatedAt}`
                 }
             }
         }

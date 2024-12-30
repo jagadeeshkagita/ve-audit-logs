@@ -32,6 +32,7 @@ exports = async function(changeEvent) {
         // }
 
         const tenant = await tenantCollection.findOne({ _id: fullDocument.tenantId }, { workspaceIds: 1, tenantUsers: 1 });
+        const workspaceId = tenant?.workspaceIds[tenant.workspaceIds.length - 1] || null;
         
 
         let logEntry = {
@@ -39,7 +40,7 @@ exports = async function(changeEvent) {
             userId: null,
             userName:null,  
             tenantId: tenantId,
-            workspaceId: tenant?.workspaceIds[tenant.workspaceIds.length - 1] || null,
+            workspaceId: workspaceId,
             entity: 'proposal',
             entityType: entityType,
             entitySlug: fullDocument.slug,
@@ -70,7 +71,7 @@ exports = async function(changeEvent) {
                 if(keysArray.includes("status")){
                     const { status } = changeEvent.updateDescription.updatedFields;
                     if (status === 'accepted' && fullDocument.acceptedBy && fullDocument.acceptedBy.name) {
-                        return `${logEntry.userName} accepeted ${fullDocument.title} proposal on ${fullDocument.updatedAt}`
+                        return `${logEntry.userName || 'Anonymous user'} accepeted ${fullDocument.title} proposal on ${fullDocument.updatedAt}`
                     }
                 }
             }
