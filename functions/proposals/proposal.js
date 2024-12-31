@@ -71,7 +71,7 @@ exports = async function(changeEvent) {
                 if(keysArray.includes("status")){
                     const { status } = changeEvent.updateDescription.updatedFields;
                     if (status === 'accepted' && fullDocument.acceptedBy && fullDocument.acceptedBy.name) {
-                        return `${logEntry.userName || 'Anonymous user'} accepeted ${fullDocument.title} proposal on ${fullDocument.updatedAt}`
+                        return `${logEntry?.userName || 'Anonymous user'} accepeted ${fullDocument.title} proposal`
                     }
                 }
             }

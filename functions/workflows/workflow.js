@@ -81,20 +81,20 @@ exports = async function(changeEvent) {
             await deletedRecordsCollection.insertOne(deleteEntry);
         }
 
-        // Create notification summary
+        
         function createNotificationSummary(changeEvent) {
             if (changeEvent.operationType === "insert") {
-                return `${logEntry.userName} created ${fullDocument.title} workflow on ${fullDocument.updatedAt}`;
+                return `${logEntry.userName} created ${fullDocument.title} workflow`;
             }
             else if (changeEvent.operationType === "update") {
                 const keysArray = Object.keys(changeEvent.updateDescription.updatedFields);
                 if (keysArray.includes("status")) {
                     const { status } = changeEvent.updateDescription.updatedFields;
                     if (status === "filesSent") {
-                        return `${logEntry.userName} published ${fullDocument.title} workflow on ${fullDocument.updatedAt}`;
+                        return `${logEntry.userName} published ${fullDocument.title} workflow`;
                     }
                 } 
-                return `${logEntry.userName} updated ${fullDocument.title} workflow on ${fullDocument.updatedAt}`;
+                return `${logEntry.userName} updated ${fullDocument.title} workflow`;
             }
             else if (changeEvent.operationType === "delete") {
                 return `${logEntry.userName} deleted ${fullDocument.title} workflow`;

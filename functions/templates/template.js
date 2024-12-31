@@ -57,17 +57,17 @@ exports = async function(changeEvent) {
         
         function createNotificationSummary(changeEvent) {
             if (changeEvent.operationType === "insert") {
-                return `${logEntry?.userName || 'Anonymous user'} created ${fullDocument.title} template on ${fullDocument.updatedAt}`;
+                return `${logEntry?.userName || 'Anonymous user'} created ${fullDocument.title} template`;
             }
             else if (changeEvent.operationType === "update") {
                 const keysArray = Object.keys(changeEvent.updateDescription.updatedFields);
                 if (keysArray.includes("status")) {
                     const { status } = changeEvent.updateDescription.updatedFields;
                     if (status === "published") {
-                        return `${logEntry?.userName || 'Anonymous user'} published ${fullDocument.title} template on ${fullDocument.updatedAt}`;
+                        return `${logEntry?.userName || 'Anonymous user'} published ${fullDocument.title} template`;
                     }
                 }
-                return `${logEntry?.userName || 'Anonymous user'} updated ${fullDocument.title} template on ${fullDocument.updatedAt}`;
+                return `${logEntry?.userName || 'Anonymous user'} updated ${fullDocument.title} template`;
             }
         }
 
